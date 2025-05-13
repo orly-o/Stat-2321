@@ -1,3 +1,7 @@
 # Stat-2321
-Grad School STAT 2321
-Applied Time Series Analysis
+
+STAT 2321 Applied Time Series Analysis
+
+University of Pittsburgh MA Statistics Program
+
+Fall 2020
