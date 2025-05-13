@@ -1,0 +1,55 @@
+---
+title: "2321 ch8 hw"
+author: "Orly Olbum"
+date: ''
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/orlyo/OneDrive/Desktop/Grad School/Fall 2020/STAT 2321 - Applied Advanced Time Series/Homeworks/HW9 - Chapter 8")
+library(astsa)
+library(fGarch)
+library(xts)
+```
+
+## 8.3
+
+*8.3. Weekly crude oil spot prices in dollars per barrel are in oil. Investigate whether the growth rate of the weekly oil price exhibits GARCH behavior. If so, fit an appropriate model to the growth rate.*
+
+First we can investigate the oil data using tsplot.
+
+```{r}
+par(mfrow = c(3, 1))
+tsplot(oil, main = "oil")
+tsplot(log(oil), main = "log(oil)")
+tsplot(diff(log(oil)), main = "diff(log(oil))")
+```
+
+Once we have arrived at the differenced-logged data, we can determine if these (returns) exhibit GARCH behavior.
+
+```{r}
+par(mfrow = c(2, 1))
+res = resid(sarima(diff(log(oil)), 2, 0, 0, details = FALSE)$fit)
+acf2(res, 20)
+acf2(res^2, 20)
+```
+
+The sample ACF of the residuals is constant and nearly white noise, but the sample acf of the squared residuals appear to be correlated. This makes oil a great candidate for GARCH! The PACF cutting off and the ACF tailing off indicates an AR structure, so we can fit an AR-GARCH model.
+
+```{r}
+oilr = diff(log(oil))
+acf2(oilr)
+u = resid(sarima(oilr, 1, 0, 0, details = FALSE)$fit)
+acf2(u^2)
+
+par(mfrow = c(1, 1))
+summary(oil.g <- garchFit(~arma(1, 0) + garch(1, 1), data = oilr, cond.dist = "std"))
+plot(oil.g, which = 3)
+```
+
+We now have the fitted model, plotted above. With significant parameters we have a good fit!
+

@@ -1,0 +1,216 @@
+---
+title: ""
+author: ""
+date: ""
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/orlyo/OneDrive/Desktop/Grad School/Fall 2020/STAT 2321 - Applied Advanced Time Series/Homeworks/HW6 - Chapter 4")
+library(astsa)
+```
+
+## 4.3
+
+*Consider:* 
+  *(i) xt = .80xt-1 - .15xt-2 + wt - .30wt-1*
+  *(ii) xt = xt-1 - .50xt-2 + wt - wt-1*
+
+*(a) Using Example 4.10 as a guide, check the models for parameter redundancy. If a model has redundancy, find the reduced form of the model.*
+
+First, determine the roots of each model. If there are common factors, the model can be reduced.
+
+```{r}
+# (i)
+ari = c(1, -.8, .15)
+mai = c(1, -.3)
+Mod(polyroot(ari))
+Mod(polyroot(mai))
+```
+
+We see that for (i), there is a common factor and the model can be reduced. The reduced model is xt = .5xt-1 + wt (which is AR(1)) (see below for calculation).
+
+```{r, echo = FALSE, out.width = "50%", fig.cap = "Reduced Model (i)"}
+knitr::include_graphics("ch4_q3_modeli.jpg")
+```
+
+```{r}
+# (ii)
+arii = c(1, -1, .5)
+maii = c(1, -1)
+Mod(polyroot(arii))
+Mod(polyroot(maii))
+```
+
+For (ii), there are no common factors so the model is in its reduced form (no redundancies).
+
+*(b) A way to tell if an ARMA model is causal is to examine the roots of AR term phi(B) to see if there are no roots less than or equal to one in magnitude. Likewise, to determine invertibility of a model, the roots of the MA term theta(B) must not be less than or equal to one in magnitude. Use Example 4.11 as a guide to determine if the reduced (if appropriate) models (i) and (ii), are causal and/or invertible.*
+
+```{r}
+# reduced model (i)
+ari_red = .5
+mai_red = 0
+
+Mod(polyroot(ari_red))
+Mod(polyroot(mai_red))
+
+# (ii)
+Mod(polyroot(arii))
+Mod(polyroot(maii))
+```
+
+For reduced model (i), roots are zero so the model is both causal and invertible. For model ii, both roots of phi(B) are greater than one so it is not causal, but the root of theta(B) is equal to 1, so it is invertible.
+
+*(c) In Example 4.3 and Example 4.12, we used ARMAtoMA and ARMAtoAR to exhibit some of the coefficients of the causal [MA(inf)] and invertible [AR(inf)] representations of a model. If the model is in fact causal or invertible, the coefficients must converge to zero fast. For each of the reduced (if appropriate) models (i) and (ii), find the first 50 coefficients and comment.*
+
+```{r}
+# reduced model (i)
+round(ARMAtoMA(ar = .5, ma = 0, 50), 3)
+round(ARMAtoAR(ar = .5, ma = 0, 50), 3)
+
+# (ii)
+round(ARMAtoMA(ar = c(1, -.5), ma = -1, 50), 3)
+round(ARMAtoAR(ar = c(1, -.5), ma = -1, 50), 3)
+```
+
+Model (i) is causal and invertible, because from the coefficients produced we can see both the ARMAtoMA and ARMAtoAR go to zero. Model (ii) is not, since the ARMAtoAR coefficients do not go to zero and instead repeat .5.
+
+
+## 4.4
+
+*(a) Compare the theoretical ACF and PACF of an ARMA(1, 1), an ARMA(1, 0), and an ARMA(0, 1) series by plotting the ACFs and PACFs of the three series for phi = .6, theta = .9. Comment on the capability of the ACF and PACF to determine the order of the models. Hint: See the code for Example 4.18.*
+
+```{r, fig.width = 5, fig.height = 3}
+acf_1 = ARMAacf(ar = .6, ma = .9, 24)[-1]
+pacf_1 = ARMAacf(ar = .6, ma = .9, 24, pacf = TRUE)
+acf_2 = ARMAacf(ar = .6, ma = 0, 24)[-1]
+pacf_2 = ARMAacf(ar = .6, ma = 0, 24, pacf = TRUE)
+acf_3 = ARMAacf(ar = 0, ma = .9, 24)[-1]
+pacf_3 = ARMAacf(ar = 0, ma = .9, 24, pacf = TRUE)
+
+par(mfrow = 2:1)
+tsplot(acf_1, type = "h", xlab = "lag", main = "AR(1,1): ACF vs. PACF")
+abline(h = 0)
+tsplot(pacf_1, type = "h", xlab = "lag")
+abline(h = 0)
+
+tsplot(acf_2, type = "h", xlab = "lag", main = "AR(1,0): ACF vs. PACF")
+abline(h = 0)
+tsplot(pacf_2, type = "h", xlab = "lag")
+abline(h = 0)
+
+tsplot(acf_3, type = "h", xlab = "lag", main = "AR(0,1): ACF vs. PACF")
+abline(h = 0)
+tsplot(pacf_3, type = "h", xlab = "lag")
+abline(h = 0)
+```
+
+The ACF and PACF plots are very telling - for ARMA(1,1), we see that both the ACF and PACF taper off somewhat together, while for AR(1) and MA(1) the PACF and ACF, respectively, abruptly end at the specified lag. More specifically, for ARMA(1,0) = AR(1), the PACF exists at lag 1 and the correlation is 0 from there on out. For ARMA(0,1) =  MA(1), the ACF this time drops to 0 after lag 1.
+
+*(b) Use arima.sim to generate n = 100 observations from each of the three models discussed in (a). Compute the sample ACFs and PACFs for each model and compare it to the theoretical values. How do the results compare with the general results given in Table 4.1?*
+
+```{r, fig.width = 5, fig.height = 3}
+arma1 = arima.sim(list(order = c(1, 0, 1), ar = .6, ma = .9), n = 100)
+acf2(arma1, main = "ARMA(1,1)")
+
+arma2 = arima.sim(list(order = c(1, 0, 0), ar = .6), n = 100)
+acf2(arma2, main = "ARMA(1,0)")
+
+arma3 = arima.sim(list(order = c(0, 0, 1), ma = .9), n = 100)
+acf2(arma3, main = "ARMA(0,1)")
+```
+
+The simulated models above track with what we did in (a), save for a bit of noise. For ARMA(1,1), we see that both ACF and PACF slowly trail off together. AR(1) has a steadily decreasing ACF and an abrupt tail off for PACF, but not exactly 0 like we saw above. MA(1) shows the same, with ACF dropping right after lag 1 (but some noise later on?) and a slower-tailing PACF, which for the most part is what we expect from Table 4.1.
+
+*(c) Repeat (b) but with n = 500. Comment.*
+
+```{r, fig.width = 5, fig.height = 3}
+arma1c = arima.sim(list(order = c(1, 0, 1), ar = .6, ma = .9), n = 500)
+acf2(arma1c, main = "ARMA(1,1)")
+
+arma2c = arima.sim(list(order = c(1, 0, 0), ar = .6), n = 500)
+acf2(arma2c, main = "ARMA(1,0)")
+
+arma3c = arima.sim(list(order = c(0, 0, 1), ma = .9), n = 500)
+acf2(arma3c, main = "ARMA(0,1)")
+```
+
+With 500 observations rather than 100, the ACF and PACF graphs of the simulated models more closely resemble what we did in (a), and what we expect to see from Table 4.1. ARMA(1,1) shows an even tail off from both ACF and PACF. The PACF for AR(1) and ACF for MA(1) show more abrupt drops to 0 after lag 1 than did the simulation with only 100 observations.
+
+
+## 4.5
+
+*Let ct be the cardiovascular mortality series (cmort) discussed in Example 3.5 and let xt = dif(ct) be the differenced data.*
+
+*(a) Plot xt and compare it to the actual data plotted in Figure 3.2. Why does differencing seem reasonable in this case?*
+
+```{r}
+ct = cmort
+xt = diff(ct)
+par(mfrow = c(2, 1))
+tsplot(ct, main = "cmort", col = 4, type = "o", pch = 19, ylab = "")
+tsplot(xt, main = "dif(cmort)", col = "darkblue", type = "o", pch = 19, ylab = "")
+```
+
+Compared to the plotted cmort data, the differenced data looked much more stationary. In the nature of the data being a moving average, differencing will yield a stationary process when the original process is not stationary.
+
+*(b) Calculate and plot the sample ACF and PACF of xt and using Table 4.1, argue that an AR(1) is appropriate for xt.*
+
+```{r, fig.width = 5, fig.height = 3}
+acf2(xt, main = "dif(cmort)")
+
+acf = ARMAacf(xt, 24)
+pacf = ARMAacf(xt, 24, pacf = TRUE)
+
+par(mfrow = 2:1)
+tsplot(acf, type = "h", xlab = "lag", main = "Differenced cmort Data")
+abline(h = 0)
+tsplot(pacf, type = "h", xlab = "lag")
+abline(h = 0)
+```
+
+The graph shows that the ACF drops off somewhat steadily, while the PACF drops abruptly at lag 1, which (according to Table 4.1) indicates that AR(1) is an appropriate model for xt.
+
+*(c) Fit an AR(1) to xt using maximum likelihood (basically unconditional least squares) as in Section 4.3. The easiest way to do this is to use sarima from astsa. Comment on the significance of the regression parameter estimates of the model. What is the estimate of the white noise variance?*
+
+```{r, fig.width = 5, fig.height = 3}
+sarima(xt, p = 1, d = 0, q = 0)
+```
+
+The fitted model gives us an estimate for phi as -0.5604, and a p-value of 0. The white noise variance is estimated to be 33.81.
+
+*(d) Examine the residuals and comment on whether or not you think the residuals are white.*
+
+From the plot produced from sarima above, we can see that the residuals behave like white noise, which is reinforced by the normal q-q plot, where the errors are almost all on the normal line, and the ACF plot where there are no significant correlations.
+
+*(e) Assuming the fitted model is the true model, find the forecasts over a four week horizon, xn n+m, for m = 1, 2, 3, 4, and the corresponding 95% prediction intervals; n = 508 here. The easiest way to do this is to use sarima.for from astsa.*
+
+```{r, fig.width = 5, fig.height = 3}
+par(mfrow = c(1, 1))
+forecast = sarima.for(xt, n.ahead = 4, p = 1, d = 0, q = 0)
+forecast
+cbind(
+  forecast$pred,
+  forecast$pred - 1.96*forecast$se, 
+  forecast$pred + 1.96*forecast$se
+)
+```
+
+*(f) Show how the values obtained in part (e) were calculated.*
+
+```{r, echo = FALSE, out.width = "50%", fig.cap = "Confidence Intervals"}
+knitr::include_graphics("hw4_q5f.jpg")
+```
+
+Using the output from the sarima in (e), the intervals use the prediction values at each m step ahead (m = 1, 2, 3, 4), alpha of .95 (consequently z* = 1.96), and the se values for each m step ahead predictions.
+
+*(g) What is the one-step-ahead forecast of the actual value of cardiovascular mortality; i.e., what is cnn +1?*
+
+```{r, fig.width = 5, fig.height = 3}
+forecast.c = sarima.for(ct, n.ahead = 1, p = 1, d = 0, q = 0)
+forecast.c
+forecast.c$pred
+```
+
+The one-step-ahead prediction for the actual cmort data is 86.23254.

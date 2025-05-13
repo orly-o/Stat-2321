@@ -1,0 +1,189 @@
+---
+title: "Chapter 5 Homework"
+author: "Orly Olbum"
+date: "10/29/2020"
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/orlyo/OneDrive/Desktop/Grad School/Fall 2020/STAT 2321 - Applied Advanced Time Series/Homeworks/HW7 - Chapter 5")
+library(astsa)
+```
+
+## 5.2
+
+*In Example 5.6, we fit an ARIMA model to the quarterly GNP series. Repeat the analysis for the US GDP series in gdp. Discuss all aspects of the fit as specified in the points at the beginning of Section 5.2 from plotting the data to diagnostics and model choice.*
+
+To fit an ARIMA model to quarterly data, we follow the following steps:
+- plot the data
+- possibly transform the data
+- identify dependence orders of the model
+- estimate the parameters
+- display diagnostics
+- choose a model
+
+First we graph a tsplot of the gdp data and see what the ACF looks like.
+
+```{r, fig.width = 5, fig.height = 3}
+layout(1:2, heights = 2:1)
+tsplot(gdp, col = 4)
+acf1(gdp, main = "")
+```
+
+The plot shows a steady incline of gdp data over time, and the trend covers up other potential effects. We might use log to display the data in terms of growth rate rather than actual data.
+
+```{r, fig.width = 5, fig.height = 3}
+par(mfrow = c(1, 1))
+tsplot(diff(log(gdp)), ylab = "GDP Growth Rate", col = 4)
+mean_dif = mean(diff(log(gdp)))
+abline(h = mean_dif, col = 6)
+```
+
+The logged/differenced data is much more stable. Now we can investigate the ACF and PACF to fit the ARIMA model.
+
+```{r, fig.width = 5, fig.height = 3}
+acf2(diff(log(gdp)), main = "")
+```
+
+We can see that the ACF cuts off around lag 2 and the PACF cuts off around 2, which suggests an ARMA(1, 2) process after differencing, or ARIMA(1, 1, 2) on the logged data log(gdp). We now can fit the model and analyze the diagnostics. First we should try AR(1) and MA(2) alone to check out the diagnostics and compare to the ARIMA model proposed.
+
+```{r, fig.width = 5, fig.height = 3}
+sarima(log(gdp), 1, 1, 0, no.constant = TRUE)
+sarima(log(gdp), 0, 1, 2, no.constant = TRUE)
+sarima(log(gdp), 1, 1, 2, no.constant = TRUE)
+```
+
+We see that the ACF of residuals is essentially all 0, the q-q plot shows normal diagnostics, and the p-values are where we want them. We might try a higher order to see if it is even better, and if not, use AIC or BIC to choose the best.
+
+```{r, fig.width = 5, fig.height = 3}
+sarima(log(gdp), 2, 1, 2, no.constant = TRUE)
+```
+
+There is not significant change, and the AIC and BIC point towards using the ARIMA(1, 1, 2) model to fit the logged gdp data.
+
+
+## 5.4
+
+*Fit an ARIMA(p, d, q) model to gtemp_land, the land-based global temperature data, performing all of the necessary diagnostics; include a model choice analysis. After deciding on an appropriate model, forecast (with limits) the next 10 years. Comment.*
+
+```{r, fig.width = 5, fig.height = 3}
+layout(1:2, heights = 2:1)
+tsplot(gtemp_land, col = 4)
+acf1(gtemp_land, main = "")
+
+par(mfrow = c(1, 1))
+tsplot(diff(gtemp_land), ylab = "GTemp - Land Growth Rate", col = 4)
+mean_dif2 = mean(diff(gtemp_land))
+abline(h = mean_dif2, col = 6)
+
+par(mfrow = c(2, 1))
+acf(diff(gtemp_land))
+pacf(diff(gtemp_land))
+```
+
+Repeating the steps mentioned in 5.2, the graph of the gtemp_land data shows a trend prime for differencing. We cannot/need not take the log this time, and we can see from the differenced data that it is much more stable. The ACF cuts off at about lag 1, and the PACF trails off, leading us to fit an MA(1) model on the differenced data, or ARIMA(0, 1, 1).
+
+```{r, fig.width = 5, fig.height = 3}
+sarima(gtemp_land, 0, 1, 1, no.constant = TRUE)
+```
+
+The model diagnostics show 0-ish residuals (white noise), standard residuals (white noise), a normal q-q plot (minimal divergence from the normal line), and acceptable p-values.
+
+Now we can forecast to the next 10 years.
+
+```{r, fig.width = 5, fig.height = 3}
+par(mfrow = c(1, 1))
+sarima.for(gtemp_land, 10, 0, 1, 1)
+```
+
+The forecast from the ARIMA(0, 1, 1) model shows a steady upward trend over the next 10 years, consistent with the trajectory of the past 30 years or so.
+
+
+## 5.11
+
+*Fit a seasonal ARIMA model of your choice to the U.S. Live Birth Series, birth. Use the estimated model to forecast the next 12 months.*
+
+First, plot the data.
+
+```{r, fig.width = 5, fig.height = 3}
+tsplot(birth)
+```
+
+We need to transform the data before fitting a model. The first difference doesn't quite get rid of the trend, but the second one does much better.
+
+```{r, fig.width = 5, fig.height = 3}
+tsplot(diff(birth))
+tsplot(diff(diff(birth)))
+abline(h = mean(diff(diff(birth))), col = "red")
+```
+
+Now we can fit the model. First we investigate the ACF, PACF of the differenced data.
+
+```{r, fig.width = 5, fig.height = 3}
+acf2(diff(diff(birth, 12)))
+```
+
+We can see that the ACF repeats at lags 1, 2, 3, etc. and the PACF tails off, indicating s = 12 and MA(1), for seasonal component. The ACF, without the seasonal component, seems to cut off at lag 1 indicating p = 1 and PACF tails off,  which is also an MA(1) for the non-seasonal component. We can model SARIMA(0, 1, 1)x(0, 1, 1) with s = 12.
+
+```{r, fig.width = 5, fig.height = 3}
+sarima(birth, 0, 1, 1, 0, 1, 1, 12)
+```
+
+After testing a few different SARIMA models to the birth data, I landed on ARIMA(0, 1, 1)X(0, 1, 1)s = 12, where the diagnostics most agree with our requirements for a well-fit model. The forecasted model is below:
+
+```{r, fig.width = 5, fig.height = 3}
+sarima.for(birth, 12, 0, 1, 1, 0, 1, 1, 12)
+abline(v = 1979.05, lty = 6)
+```
+
+
+## 5.14
+
+*One of the remarkable technological developments in the computer industry has been the ability to store information densely on a hard drive. In addition, the cost of storage has steadily declined causing problems of too much data as opposed to big data. The data set for this assignment is cpg, which consists of the median annual retail price per GB of hard drives, say ct, taken from a sample of manufacturers from 1980 to 2008.*
+
+*(a) Plot ct and describe what you see.*
+
+```{r, fig.width = 5, fig.height = 3}
+ct = cpg
+tsplot(ct)
+```
+
+The cpg dataset is high to begin with in the 1980s and sharply decreases until 1990, where it smooths out around 0 for the rest of the time interval.
+
+*(b) Argue that the curve ct versus t behaves like ct = ae^bt by fitting a linear regression of log ct on t and then plotting the fitted line to compare it to the logged data. Comment.*
+
+```{r, fig.width = 5, fig.height = 3}
+t = seq(1980, 2008, 1)
+data = cbind(ct, t)
+model = lm(log(ct) ~ t)
+summary(model)
+
+tsplot(log(ct), main = "Logged ct data with linear regression line")
+abline(model, col = 4)
+```
+
+The logged data looks smoother, rather than a sharp decrease it steadily decreases over the time interval of the data. The fitted linear model of logged ct onto t (year) has promising diagnostics for modeling the logged ct data. We now have a model of log(ct) = Bt, or ct = e^Bt.
+
+*(c) Inspect the residuals of the linear regression fit and comment.*
+
+```{r, fig.width = 5, fig.height = 3}
+qqnorm(log(ct), pch = 1)
+qqline(log(ct), col = "red", lwd = 2)
+acf2(resid(model))
+```
+
+The trend present in the residuals shows that they are likely correlated. A good model would have the residuals mostly flatly on the qqline, but here we see that they trend somewhat cyclically around the line. The ACF and PACF of the residuals also show that they are not white.
+
+*(d) Fit the regression again, but now using the fact that the errors are autocorrelated. Comment.*
+
+Since the PACF lagged at 1 and the ACF tailed off, we can try an AR(1) model.
+
+```{r, fig.width = 5, fig.height = 3}
+sarima(log(ct), 1, 0, 0, xreg = t)
+```
+
+Now, the residuals are fairly white and we are happy with the model.
+
+
+

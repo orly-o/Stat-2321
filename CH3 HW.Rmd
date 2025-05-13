@@ -1,0 +1,227 @@
+---
+title: "Chapter 3 HW"
+author: "Orly Olbum"
+date: ""
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/orlyo/OneDrive/Desktop/Grad School/Fall 2020/STAT 2321 - Applied Advanced Time Series/Homeworks/HW5 - Chapter 3")
+library(astsa)
+
+```
+
+## 3.1
+
+*(Structural Regression Model). For the Johnson & Johnson data, say yt, shown in Figure 1.1, let xt = log(yt). In this problem, we are going to fit a special type of structural model, xt = Tt + St + Nt where Tt is a trend component, St is a seasonal component, and Nt is noise. In our case, time t is in quarters (1960.00, 1960.25, . . . ) so one unit of time is a year.*
+
+*(a) Fit the regression model*
+  *xt = Bt + a1Q1(t) + a2Q2(t) + a3Q3(t) + a4Q4(t) + wt*
+  *xt = trend + seasonal + noise*
+*where Qi(t) = 1 if time t corresponds to quarter i = 1, 2, 3, 4, and zero otherwise. The Qi(t)'s are called indicator variables. We will assume for now that wt is a Gaussian white noise sequence. Hint: Detailed code is given in Appendix A, near the end of Section A.5.*
+
+```{r}
+yt = jj
+xt = log(yt)
+trend = time(yt) - 1970
+Q = factor(cycle(yt))
+reg = lm(xt ~ 0 + trend + Q, na.action = NULL)
+summary(reg)
+
+```
+
+*(b) If the model is correct, what is the estimated average annual increase in the logged earnings per share?*
+
+Using the model diagnostics, the average annual increase in logged earnings per share is $ 0.16.
+
+*(c) If the model is correct, does the average logged earnings rate increase or decrease from the third quarter to the fourth quarter? And, by what percentage does it increase or decrease?*
+
+Assuming a correct model, the logged earnings rate decreases from the third to the fourth quarter, by 30.6%.
+
+*(d) What happens if you include an intercept term in the model in (a)? Explain why there was a problem.*
+
+```{r}
+reg2 = lm(xt ~ trend + Q, na.action = NULL)
+summary(reg2)
+
+```
+
+If we include an intercept in the model, we lose the Q1 trend and the estimates do not align correctly.
+
+*(e) Graph the data, xt, and superimpose the fitted values, say xt-hat, on the graph. Examine the residuals, xt - xt-hat, and state your conclusions. Does it appear that the model fits the data well (do the residuals look white)?*
+
+```{r, fig.width = 5, fig.height = 3}
+par(mfrow = c(1, 1))
+plot(xt, lwd = 2, main = "Logged J & J Earnings with Model Fit", ylab = "log(jj)")
+lines(fitted(reg), col = 3, lwd = 2)
+legend("bottomright", legend = c("Logged JJ", "Model Fit"), lty = 1, lwd = 3, 
+       col = c(1, 3), bg = "white")
+plot(resid(reg), col = 4, lwd = 2, main = "Residuals", ylab = "")
+abline(h = 0, lty = "dotted", col = 2, lwd = 2)
+
+```
+
+The fitted values look very close to the actual (logged) data, and the residuals all lie around 0 with no obvious trend (maybe slightly cyclical...), indicating a good model fit.
+
+## 3.2
+
+*For the mortality data examined in Example 3.5:*
+
+*(a) Add another component to the regression in (3.17) that accounts for the particulate count four weeks prior; that is, add Pt-4 to the regression in (3.17). State your conclusion.*
+
+```{r}
+temp = tempr - mean(tempr)
+temp2 = temp^2
+trend = time(cmort)
+partL4 = lag(part, -4)
+
+ded = ts.intersect(cmort, trend, temp, temp2, part, partL4)
+
+fit = lm(cmort ~ trend + temp + temp2 + part + partL4, data = ded, na.action = NULL)
+summary(fit)
+summary(aov(fit))
+
+```
+
+In the regression with the lagged part term added, the p-value is significant and all terms show to be significant predictors for cmort.
+
+*(b) Using AIC and BIC, is the model in (a) an improvement over the final model in Example 3.5?*
+
+```{r}
+dedprior = ts.intersect(cmort, trend, temp, temp2, part)
+fitprior = lm(cmort ~ trend + temp + temp2 + part, data = dedprior, na.action = NULL)
+num = length(cmort)
+AIC(fitprior)/num - log(2*pi); BIC(fitprior)/num - log(2*pi)
+
+AIC(fit)/num - log(2*pi); BIC(fit)/num - log(2*pi)
+
+```
+
+The new AIC and BIC are both lower than the prior model, indicating a better model fit for the data.
+
+\newpage
+
+## 3.6
+
+*The glacial varve record plotted in Figure 3.9 exhibits some nonstationarity that can be improved by transforming to logarithms and some additional nonstationarity that can be corrected by differencing the logarithms.*
+
+*(a) Argue that the glacial varves series, say xt, exhibits heteroscedasticity by computing the sample variance over the first half and the second half of the data. Argue that the transformation yt = log(xt) stabilizes the variance over the series. Plot the histograms of xt and yt to see whether the approximation to normality is improved by transforming the data.*
+
+```{r, fig.width = 7, fig.height = 3}
+xt = varve
+yt = log(varve)
+
+n = length(varve)
+varve1 = varve[1:n/2]
+varve2 = varve[(n/2 + 1):n]
+firstvar = var(varve1)
+secondvar = var(varve2)
+firstvar; secondvar
+
+par(mfrow = c(1, 2))
+hist(xt, main = "Varve")
+hist(yt, main = "Logged Varve", xlab = "yt = log(xt)")
+
+```
+
+The variance in the second half of the varve data is much larger than the variance exhibited in the first half, indicating non-homogeneous variance. We need to transform the data to smooth it by taking the natural log. The plot of xt shows a trend between thickness and amount deposited, and logging the data removes this as seen in the plot of yt = log(xt). The histograms show evidence that the log(varve) data has been normalized.
+
+*(b) Plot the series yt. Do any time intervals, of the order 100 years, exist where one can observe behavior comparable to that observed in the global temperature records in Figure 1.2?*
+
+```{r, fig.width = 5, fig.height = 3}
+par(mfrow = c(1, 1))
+tsplot(yt, main = "yt = log(varve)", col = 4, margin = 0)
+
+```
+
+From time about 150 to 400, the data looks like Figure 1.2 - a steady increase with some variation from the overall trend.
+
+*(c) Examine the sample ACF of yt and comment.*
+
+```{r, fig.width = 5, fig.height = 3}
+acf(yt, plot = TRUE)
+
+```
+
+The ACF of the logged varve data shows a somewhat decreasing trend after 0, but the correlations stay above the boundary and behave somewhat cyclically, indicating consistent autocorrelation beyond lag 1.
+
+*(d) Compute the difference ut = yt - yt-2, examine its time plot and sample ACF, and argue that differencing the logged varve data produces a reasonably stationary series. Can you think of a practical interpretation for ut?*
+
+```{r, fig.width = 5, fig.height = 3}
+ut = yt - lag(yt, -2)
+tsplot(ut, ylab = "", main = "yt - yt-2", col = 4, margin = 0)
+acf(ut, plot = TRUE)
+
+```
+
+Just with the time plot we can see that the differenced logged data looks stationary, and the ACF tells us this as well - beyond lag 2 there is no autocorrelation. Differencing logged data provides symmetry along with stationarity, and a practice application for this type of transformation could be to any data that is exponential in behavior, such as anything to do with population growth. Perhaps compount interest or pandemic data can be analyzed in this way.
+
+## 3.7
+
+*Use the three different smoothing techniques described in Example 3.16, Example 3.17, and Example 3.18, to estimate the trend in the global temperature series displayed in Figure 1.2. Comment.*
+
+```{r, fig.width = 5, fig.height = 3}
+culer = c(rgb(.85, .30, .12, .6), rgb(.12, .65, .85, .60))
+
+tsplot(gtemp, col = culer[1], lwd = 2, type = "o", pch = 20, main = "Global Temps")
+par(mfrow = c(1, 1))
+
+# moving average smoother
+w = c(.5, rep(1, 11), .5)/12
+gtempf = filter(gtemp, sides = 2, filter = w)
+tsplot(gtemp, col = "azure4", main = "Moving Average - Global Temps")
+lines(gtempf, lwd = 2, col = 4)
+
+# kernel smoothing
+tsplot(gtemp, col = rgb(0.5, 0.6, 0.85, 0.9), lwd = 2, main = "Kernel Smoothing - Global Temps")
+lines(ksmooth(time(gtemp), gtemp, "normal", bandwidth = 4), lwd = 2, col = 4)
+
+# lowess
+tsplot(gtemp, col = rgb(0.5, 0.6, 0.85, 0.9), main = "LOWESS - Global Temps")
+lines(lowess(gtemp, f = 0.05), lwd = 2, col = 2)
+lo = predict(loess(gtemp ~ time(gtemp)), se = TRUE)
+trnd = ts(lo$fit, start = 1880, freq = 1)
+lines(trnd, col = 4, lwd = 2)
+L = trnd - qt(0.975, lo$df)*lo$se
+U = trnd + qt(0.975, lo$df)*lo$se
+xx = c(time(gtemp), rev(time(gtemp)))
+yy = c(L, rev(U))
+polygon(xx, yy, border = 8, col = gray(0.6, alpha = 0.4))
+
+```
+
+1. Moving Average Smoother
+The moving average smoothing method removes the obvious cycles and emphasizes any stand-out points, in this case extreme temperatures exhibited in the global warming data.
+
+2. Kernel Smoothing
+To obtain an even smoother fit, kernel smoothing uses a weight to average observations of a dataset. Use b = 4 to smooth over each year.
+
+3. Lowess
+Lowess (locally weighted scatterplot smoothing) uses k-nearest neighbor regression to smooth data. Weights are calculated based on a proportion of neighbors to each data point.
+
+## 3.9
+
+*As in Problem 3.1, let yt be the raw Johnson & Johnson series shown in Figure 1.1, and let xt = log(yt). Use each of the techniques mentioned in Example 3.20 to decompose the logged data as xt = Tt + St + Nt and describe the results. If you did Problem 3.1, compare the results of that problem with those found in this problem.*
+
+```{r, fig.width = 5, fig.height = 5}
+culer = c("cyan4", 4, 2, 6)
+par(mfrow = c(4, 1), cex.main = 1)
+x = window(log(jj), start = 1960)
+out = stl(x, s.window = 15)$time.series
+
+tsplot(x, main = "Johnson & Johnson", ylab = "", col = gray(0.7))
+text(x, labels = 1:4, col = culer, cex = 1.25)
+tsplot(out[,1], main = "Seasonal", ylab = "", col = gray(0.7))
+text(out[,1], labels = 1:4, col = culer, cex = 1.25)
+tsplot(out[,2], main = "Trend", ylab = "", col = gray(0.7))
+text(out[,2], labels = 1:4, col = culer, cex = 1.25)
+tsplot(out[,3], main = "Noise", ylab = "", col = gray(0.7))
+text(out[,3], labels = 1:4, col = culer, cex = 1.25)
+
+```
+
+The Seasonal plot shows an increase from Q1 to Q2, increase from Q2 to Q3, sharp decrease from Q3 to 4, and an increase back from Q4 to the next Q1. The Trend plot shows a steady increase over the 20 years of the data from quarter to quarter, relatively smooth. The Noise plot shows higher deviations from Q3 and Q4 from the data than Q1 and Q2.
+
+In 3.1 we had a good model fit (residuals around 0 and a trend line that fit the data well). Here, we see a Noise plot that would indicate a good fit, all around 0, and a seasonal trend that is somewhat regular (in terms of direction but not always in magnitude). This generally agrees with the model in 3.1 being a good fit.
+
